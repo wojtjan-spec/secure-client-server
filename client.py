@@ -1,7 +1,11 @@
 import socket
 import sys
+import os
+
+from helper_symmetric import decrypt_symmetric, encrypt_symmetric
+from helper_asymmetric import encrypt_asymmetric
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
 
 def main():
@@ -15,7 +19,9 @@ def main():
 	PUBLIC_KEY_FILE = sys.argv[3]
 	
 	# Generate a session key to be used for symmetric encryption
-	session_key = b'4\xb4\x87\xd7V\x8b\xad'
+	salt = os.urandom(16)
+	kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000, backend=default_backend())
+	session_key = kdf.derive(b"secret")
 
 	# Load server's public key from file
 	public_key_file_name = PUBLIC_KEY_FILE
@@ -31,27 +37,37 @@ def main():
 		s.connect((HOST, PORT))
 
 		# Encrypt the session key using the server's public key
-		encrypted_session_key = public_key.encrypt(
-        	session_key,
-        	padding.OAEP(
-            	mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            	algorithm=hashes.SHA256(),
-            	label=None
-        ))
+		encrypted_session_key = encrypt_asymmetric(public_key, session_key)
 
 		# Send the encrypted session key as the initialization message
 		s.sendall(encrypted_session_key)
 
-    	# Send data to server
-		text = input("> ")
-		message = text
-		s.sendall(message.encode())
+		while True:
+    		# Send data to server
+			text = input("> ")
+			message = bytes([len(text)]) + text.encode()
+			if len(message) >= 256:
+				raise ValueError("message exceeding 256 bytes")
 
-    	# Receive data from server
-		data = s.recv(1024)
+			encrypted_message = encrypt_symmetric(message, session_key)
+			s.sendall(encrypted_message)
 
-    	# Print received data
-		print("Received from server: ",  {data.decode()})
+    		# Receive data from server
+			data = s.recv(1024)
+
+    		# Decrypt received data
+			response = decrypt_symmetric(data, session_key)
+
+			# Extract message length byte
+			message_length = response[0]
+
+            # Extract message string
+			message_string = response[1:message_length+1].decode()
+			print(message_string)
+			
+			# Exit connection if quit message was received from the server
+			if message_string == "connection terminated":
+				return 0
 
 if __name__ == '__main__':
 	main()

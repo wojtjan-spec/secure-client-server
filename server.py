@@ -1,28 +1,37 @@
 import socket
 import sys
 import csv
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+from helper_symmetric import decrypt_symmetric, encrypt_symmetric
+from helper_asymmetric import decrypt_asymmetric
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
-# Define host and port to listen on
+# Define host
 HOST = '127.0.0.1'
 
 database_dictionary = {
-    1: "type",
-    2: "game_id",
-    3: "home_team",
-    4: "away_team",
-    5: "week",
-    6: "season", 
-    7: "home_score",
-    8: "away_score"
+    "type": 0,
+    "game_id": 1,
+    "home_team": 2,
+    "away_team": 3,
+    "week": 4,
+    "season": 5, 
+    "home_score": 6,
+    "away_score": 7
 }
 
-def get_item_from_data_base(database, search_id, item):
-    for row in database:
-            print(', '.join(row))
-    return 0
+def get_item_from_data_base(data_file_name, search_id, item):
+    with open(data_file_name + '.csv', newline='') as csvfile:
+        database = csv.reader(csvfile, delimiter=' ', quotechar='|')
+        for row in database:
+            list = row[0].split(',')
+            if list[1] == search_id:
+                if database_dictionary.get(item) != None:
+                    return list[database_dictionary.get(item)]
+                else:
+                    return None
+        return None
 
 def main():
 
@@ -35,13 +44,7 @@ def main():
     DATA_FILE = sys.argv[2]
     PRIVATE_KEY_FILE = sys.argv[3]
 
-    # Parse the key_file and data_file to objects
-    # Data_csv
-    data_file_name = DATA_FILE
-    with open(data_file_name + '.csv', newline='') as csvfile:
-        database = csv.reader(csvfile, delimiter=' ', quotechar='|')
-
-    # Private key
+    # Parse the key_file to object
     private_key_file_name = PRIVATE_KEY_FILE
     with open(private_key_file_name + '.pem', "rb") as key_file:
         private_key = serialization.load_pem_private_key(
@@ -54,10 +57,11 @@ def main():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         # Bind socket to specified host and port
         s.bind((HOST, PORT))
+
         # Listen for incoming connections
         s.listen()
         print("Server started")
-        print("Listening for client on {HOST}:{PORT}")
+        print("Listening for client on: " , str(HOST) + ':' + str(PORT))
         print("...")
  
         # Wait for a client to connect
@@ -69,16 +73,7 @@ def main():
             encrypted_session_key = conn.recv(1024)
 
             # Decrypt the session key using the server's private key
-            session_key = private_key.decrypt(
-                encrypted_session_key,
-                padding.OAEP(
-                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                    algorithm=hashes.SHA256(),
-                    label=None
-                )
-            )
-            
-            print("Session key: ", session_key)
+            session_key = decrypt_asymmetric(private_key, encrypted_session_key)
 
             while True:
                 # Receive data from client
@@ -86,11 +81,40 @@ def main():
                 if not data:
                     break
 
-                # Print received data
-                print("Received from client:", {data.decode()})
+                # Decrypt and print received data
+                message = decrypt_symmetric(data, session_key)
+                # Extract message length byte
+                message_length = message[0]
 
-                # Send data back to client
-                conn.sendall(data)
+                # Extract message string
+                message_string = message[1:message_length+1].decode()
+                message_words = message_string.split()
+                word_count = len(message_words)
+                
+                if word_count != 2:
+
+                    if message_string == "quit":
+                        text = "connection terminated"
+                        print(text)
+                        final_response = bytes([len(text)]) + text.encode()
+                        final_message = encrypt_symmetric(final_response, session_key)
+                        conn.sendall(final_message)
+                        return 0
+                    else:
+                        text = "unknown"
+
+                else:
+                    request_data = get_item_from_data_base(DATA_FILE, message_words[0], message_words[1])
+                    if request_data == None:
+                        text = "unknown"
+                    else:
+                        text = request_data
+                        if len(text) >= 256:
+                            raise ValueError("message exceeding 256 bytes")
+                
+                response = bytes([len(text)]) + text.encode()
+                message = encrypt_symmetric(response, session_key)
+                conn.sendall(message)
 
 if __name__ == '__main__':
 	main()
