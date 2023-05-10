@@ -2,6 +2,7 @@ import socket
 import sys
 import csv
 
+# Imported from cryptography library
 from helper_symmetric import decrypt_symmetric, encrypt_symmetric
 from helper_asymmetric import decrypt_asymmetric
 from cryptography.hazmat.primitives import serialization
@@ -10,6 +11,7 @@ from cryptography.hazmat.backends import default_backend
 # Define host
 HOST = '127.0.0.1'
 
+# Database tags
 database_dictionary = {
     "type": 0,
     "game_id": 1,
@@ -21,6 +23,7 @@ database_dictionary = {
     "away_score": 7
 }
 
+# Get item from csv file to form server response
 def get_item_from_data_base(data_file_name, search_id, item):
     with open(data_file_name + '.csv', newline='') as csvfile:
         database = csv.reader(csvfile, delimiter=' ', quotechar='|')
@@ -46,7 +49,7 @@ def main():
 
     # Parse the key_file to object
     private_key_file_name = PRIVATE_KEY_FILE
-    with open(private_key_file_name + '.pem', "rb") as key_file:
+    with open(private_key_file_name + '.txt', "rb") as key_file:
         private_key = serialization.load_pem_private_key(
             key_file.read(),
             password=None,
@@ -92,7 +95,8 @@ def main():
                 word_count = len(message_words)
                 
                 if word_count != 2:
-
+                    
+                    # Terminate connection if 'quit' message received
                     if message_string == "quit":
                         text = "connection terminated"
                         print(text)
@@ -104,6 +108,7 @@ def main():
                         text = "unknown"
 
                 else:
+                    # Get item from csv
                     request_data = get_item_from_data_base(DATA_FILE, message_words[0], message_words[1])
                     if request_data == None:
                         text = "unknown"
@@ -112,6 +117,7 @@ def main():
                         if len(text) >= 256:
                             raise ValueError("message exceeding 256 bytes")
                 
+                # Respond to the client request
                 response = bytes([len(text)]) + text.encode()
                 message = encrypt_symmetric(response, session_key)
                 conn.sendall(message)

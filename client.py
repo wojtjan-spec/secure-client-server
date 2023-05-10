@@ -25,7 +25,7 @@ def main():
 
 	# Load server's public key from file
 	public_key_file_name = PUBLIC_KEY_FILE
-	with open(public_key_file_name + '.pem', "rb") as key_file:
+	with open(public_key_file_name + '.txt', "rb") as key_file:
 		public_key = serialization.load_pem_public_key(
         	key_file.read(),
         	backend=default_backend()
