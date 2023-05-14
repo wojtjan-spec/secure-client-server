@@ -5,6 +5,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.backends import default_backend
 
+
 # Encryption function
 def encrypt_symmetric(data, key):
     iv = os.urandom(16)
@@ -14,6 +15,7 @@ def encrypt_symmetric(data, key):
     padded_data = padder.update(data) + padder.finalize()
     ciphertext = encryptor.update(padded_data) + encryptor.finalize()
     return iv + ciphertext
+
 
 # Decryption function
 def decrypt_symmetric(data, key):

@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 # Define host
-HOST = '127.0.0.1'
+HOST = "127.0.0.1"
 
 # Database tags
 database_dictionary = {
@@ -18,17 +18,18 @@ database_dictionary = {
     "home_team": 2,
     "away_team": 3,
     "week": 4,
-    "season": 5, 
+    "season": 5,
     "home_score": 6,
-    "away_score": 7
+    "away_score": 7,
 }
+
 
 # Get item from csv file to form server response
 def get_item_from_data_base(data_file_name, search_id, item):
-    with open(data_file_name + '.csv', newline='') as csvfile:
-        database = csv.reader(csvfile, delimiter=' ', quotechar='|')
+    with open(data_file_name + ".csv", newline="") as csvfile:
+        database = csv.reader(csvfile, delimiter=" ", quotechar="|")
         for row in database:
-            list = row[0].split(',')
+            list = row[0].split(",")
             if list[1] == search_id:
                 if database_dictionary.get(item) != None:
                     return list[database_dictionary.get(item)]
@@ -36,8 +37,8 @@ def get_item_from_data_base(data_file_name, search_id, item):
                     return None
         return None
 
-def main():
 
+def main():
     if len(sys.argv) < 4:
         print("Usage: python server.py <port> <data_file> <private_key_file>")
         sys.exit(1)
@@ -49,11 +50,9 @@ def main():
 
     # Parse the key_file to object
     private_key_file_name = PRIVATE_KEY_FILE
-    with open(private_key_file_name + '.txt', "rb") as key_file:
+    with open(private_key_file_name + ".txt", "rb") as key_file:
         private_key = serialization.load_pem_private_key(
-            key_file.read(),
-            password=None,
-            backend=default_backend()
+            key_file.read(), password=None, backend=default_backend()
         )
 
     # Create socket object
@@ -64,9 +63,9 @@ def main():
         # Listen for incoming connections
         s.listen()
         print("Server started")
-        print("Listening for client on: " , str(HOST) + ':' + str(PORT))
+        print("Listening for client on: ", str(HOST) + ":" + str(PORT))
         print("...")
- 
+
         # Wait for a client to connect
         conn, addr = s.accept()
         with conn:
@@ -90,12 +89,11 @@ def main():
                 message_length = message[0]
 
                 # Extract message string
-                message_string = message[1:message_length+1].decode()
+                message_string = message[1 : message_length + 1].decode()
                 message_words = message_string.split()
                 word_count = len(message_words)
-                
+
                 if word_count != 2:
-                    
                     # Terminate connection if 'quit' message received
                     if message_string == "quit":
                         text = "connection terminated"
@@ -109,18 +107,21 @@ def main():
 
                 else:
                     # Get item from csv
-                    request_data = get_item_from_data_base(DATA_FILE, message_words[0], message_words[1])
+                    request_data = get_item_from_data_base(
+                        DATA_FILE, message_words[0], message_words[1]
+                    )
                     if request_data == None:
                         text = "unknown"
                     else:
                         text = request_data
                         if len(text) >= 256:
                             raise ValueError("message exceeding 256 bytes")
-                
+
                 # Respond to the client request
                 response = bytes([len(text)]) + text.encode()
                 message = encrypt_symmetric(response, session_key)
                 conn.sendall(message)
 
-if __name__ == '__main__':
-	main()
+
+if __name__ == "__main__":
+    main()

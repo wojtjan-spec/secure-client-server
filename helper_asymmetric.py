@@ -2,6 +2,7 @@
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 
+
 # Encryption function
 def encrypt_asymmetric(public_key, data):
     ciphertext = public_key.encrypt(
@@ -9,10 +10,11 @@ def encrypt_asymmetric(public_key, data):
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
-            label=None
-        )
+            label=None,
+        ),
     )
     return ciphertext
+
 
 # Decryption function
 def decrypt_asymmetric(private_key, ciphertext):
@@ -21,7 +23,7 @@ def decrypt_asymmetric(private_key, ciphertext):
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
-            label=None
-        )
+            label=None,
+        ),
     )
     return data
